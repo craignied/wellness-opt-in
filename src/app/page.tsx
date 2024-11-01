@@ -15,7 +15,7 @@ export default function Home() {
          <CardDescription>Sign up to receive daily health and wellness reminders</CardDescription>
        </CardHeader>
        <CardContent>
-         <Alert variant="warning" className="mb-8">
+        <Alert variant="destructive" className="mb-8">
            <AlertCircle className="h-4 w-4" />
            <AlertDescription>
              This service is currently awaiting regulatory approval. Any information entered during this time will not be saved or processed until approval is received. We appreciate your patience and interest.
