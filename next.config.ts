@@ -8,15 +8,23 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
-            value: 'https://maledoc.com'
+            value: '*'
           },
           {
-            key: 'X-Frame-Options',
-            value: 'ALLOW-FROM https://maledoc.com'
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, OPTIONS'
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: '*'
           },
           {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self' https://maledoc.com"
+            value: "frame-ancestors *"
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'ALLOWALL'
           }
         ],
       },
