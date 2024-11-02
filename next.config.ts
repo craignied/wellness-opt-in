@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
         source: '/:path*',
         headers: [
           {
+            key: 'Access-Control-Allow-Origin',
+            value: 'https://maledoc.com'
+          },
+          {
             key: 'X-Frame-Options',
             value: 'ALLOW-FROM https://maledoc.com'
           },
