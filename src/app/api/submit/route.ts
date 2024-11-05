@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import twilio from 'twilio'
+
+// Initialize Twilio client
+const accountSid = process.env.TWILIO_ACCOUNT_SID
+const authToken = process.env.TWILIO_AUTH_TOKEN
+const twilioNumber = process.env.TWILIO_PHONE_NUMBER
+
+const client = twilio(accountSid, authToken)
 
 // Validation functions
 const validatePhoneNumber = (phone: string): { valid: boolean; formatted: string } => {
@@ -12,7 +20,7 @@ const validatePhoneNumber = (phone: string): { valid: boolean; formatted: string
   
   return {
     valid: phoneRegex.test(cleaned),
-    formatted: cleaned
+    formatted: cleaned.startsWith('+') ? cleaned : `+1${cleaned}`
   }
 }
 
@@ -62,39 +70,74 @@ export async function POST(request: Request) {
     // Check for existing subscription
     const { data: existingUser } = await supabase
       .from('subscribers')
-      .select('id')
+      .select('id, unsubscribed, opt_in_completed')
       .eq('phone_number', phoneValidation.formatted)
       .single()
 
+    // If user exists but has unsubscribed, allow them to resubscribe
     if (existingUser) {
-      return NextResponse.json(
-        { success: false, message: 'This phone number is already registered' },
-        { status: 400 }
-      )
+      if (!existingUser.unsubscribed) {
+        return NextResponse.json(
+          { success: false, message: 'This phone number is already registered' },
+          { status: 400 }
+        )
+      }
+
+      // Update existing user
+      const { error: updateError } = await supabase
+        .from('subscribers')
+        .update({ 
+          full_name: fullName.trim(),
+          unsubscribed: false,
+          opt_in_completed: false
+        })
+        .eq('phone_number', phoneValidation.formatted)
+
+      if (updateError) {
+        console.error('Database error:', updateError)
+        return NextResponse.json(
+          { success: false, message: 'Error updating subscription' },
+          { status: 500 }
+        )
+      }
+    } else {
+      // Store new subscriber in database
+      const { error: dbError } = await supabase
+        .from('subscribers')
+        .insert([
+          { 
+            full_name: fullName.trim(), 
+            phone_number: phoneValidation.formatted,
+            opt_in_completed: false,
+            unsubscribed: false
+          }
+        ])
+
+      if (dbError) {
+        console.error('Database error:', dbError)
+        return NextResponse.json(
+          { success: false, message: 'Error saving subscription' },
+          { status: 500 }
+        )
+      }
     }
 
-    // Store in database
-    const { error: dbError } = await supabase
-      .from('subscribers')
-      .insert([
-        { 
-          full_name: fullName.trim(), 
-          phone_number: phoneValidation.formatted,
-          opt_in_completed: false // Track opt-in status
-        }
-      ])
-
-    if (dbError) {
-      console.error('Database error:', dbError)
-      return NextResponse.json(
-        { success: false, message: 'Error saving subscription' },
-        { status: 500 }
-      )
+    // Send initial opt-in message
+    try {
+      await client.messages.create({
+        body: "Welcome to Daily Wellness Messages! Reply YES to confirm your subscription and start receiving daily health tips. Reply STOP at any time to unsubscribe.",
+        from: twilioNumber,
+        to: phoneValidation.formatted
+      })
+    } catch (smsError) {
+      console.error('SMS error:', smsError)
+      // Don't return error to user as we've saved their info
+      // They can still opt in when they receive the first automated message
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Successfully registered for wellness messages'
+      message: 'Successfully registered! Please check your phone for a confirmation message.'
     })
 
   } catch (error) {

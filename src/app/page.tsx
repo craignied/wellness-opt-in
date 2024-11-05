@@ -63,13 +63,6 @@ export default function Home() {
           <CardDescription>Sign up to receive daily health and wellness reminders</CardDescription>
         </CardHeader>
         <CardContent>
-          <Alert variant="destructive" className="mb-8">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              This service is currently awaiting regulatory approval. Any information entered during this time will not be saved or processed until approval is received. We appreciate your patience and interest.
-            </AlertDescription>
-          </Alert>
-
           <Tabs defaultValue="signup" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -95,7 +88,7 @@ export default function Home() {
                 {success && (
                   <Alert>
                     <AlertDescription>
-                      Thank you for signing up! Your information has been recorded.
+                      Thank you for signing up! Please check your phone for a confirmation message and reply YES to start receiving wellness messages.
                     </AlertDescription>
                   </Alert>
                 )}
