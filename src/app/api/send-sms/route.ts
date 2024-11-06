@@ -1,14 +1,33 @@
 import { NextResponse } from 'next/server'
+import type { Twilio } from 'twilio'
 
-// Change the twilio import and initialization
-const twilio = require('twilio')
-const accountSid = process.env.TWILIO_ACCOUNT_SID
-const authToken = process.env.TWILIO_AUTH_TOKEN
-const twilioNumber = process.env.TWILIO_PHONE_NUMBER
+// Define types for better TypeScript support
+type TwilioClient = {
+  messages: {
+    create: (params: {
+      body: string;
+      from: string;
+      to: string;
+    }) => Promise<{ sid: string }>;
+    list: (params: { limit: number }) => Promise<any[]>;
+  };
+}
 
-const client = twilio(accountSid, authToken)
+let client: TwilioClient
 
-// The rest stays exactly the same
+// Initialize client only when needed
+const getClient = () => {
+  if (!client) {
+    const twilio = require('twilio')
+    client = twilio(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    ) as TwilioClient
+  }
+  return client
+}
+
+// Ensure phone number is properly formatted
 const formatPhoneNumber = (phone: string): string => {
   const cleaned = phone.replace(/[^\d+]/g, '')
   return cleaned.startsWith('+') ? cleaned : `+1${cleaned}`
@@ -28,10 +47,11 @@ export async function POST(request: Request) {
 
     const formattedPhone = formatPhoneNumber(phoneNumber)
 
-    // Send message via Twilio
-    const twilioMessage = await client.messages.create({
+    // Get client instance and send message
+    const twilioClient = getClient()
+    const twilioMessage = await twilioClient.messages.create({
       body: message,
-      from: twilioNumber,
+      from: process.env.TWILIO_PHONE_NUMBER!,
       to: formattedPhone
     })
 
@@ -60,7 +80,8 @@ export async function POST(request: Request) {
 // Optional: Add a GET endpoint to check service status
 export async function GET() {
   try {
-    await client.messages.list({ limit: 1 })
+    const twilioClient = getClient()
+    await twilioClient.messages.list({ limit: 1 })
     return NextResponse.json({ status: 'healthy' })
   } catch (error) {
     return NextResponse.json(
