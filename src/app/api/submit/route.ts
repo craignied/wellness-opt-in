@@ -1,29 +1,22 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
-// Define types for better TypeScript support
-type TwilioClient = {
-  messages: {
-    create: (params: {
-      body: string;
-      from: string;
-      to: string;
-    }) => Promise<{ sid: string }>;
-  };
-}
-
-let client: TwilioClient
-
 // Initialize client only when needed
 const getClient = () => {
-  if (!client) {
-    const twilio = require('twilio')
-    client = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    ) as TwilioClient
+  // Check if credentials are available
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+    throw new Error('Twilio credentials not configured')
   }
-  return client
+
+  const twilioClient = require('twilio')(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN,
+    {
+      lazyLoading: true,
+      accountSid: process.env.TWILIO_ACCOUNT_SID  // Explicitly set accountSid
+    }
+  )
+  return twilioClient
 }
 
 // Validation functions
@@ -126,28 +119,28 @@ export async function POST(request: Request) {
 
     // Send initial opt-in message
     try {
-      console.log('Initializing Twilio client')
-      const twilioClient = getClient()
-      console.log('Twilio environment variables:')
-      console.log('Account SID length:', process.env.TWILIO_ACCOUNT_SID?.length || 'undefined')
+      console.log('Initializing Twilio client with:')
+      console.log('Account SID:', process.env.TWILIO_ACCOUNT_SID?.substring(0, 5) + '...')
       console.log('Auth Token length:', process.env.TWILIO_AUTH_TOKEN?.length || 'undefined')
-      console.log('Phone Number:', process.env.TWILIO_PHONE_NUMBER || 'undefined')
+      console.log('From Phone:', process.env.TWILIO_PHONE_NUMBER)
+      
+      const twilioClient = getClient()
       
       console.log('Attempting to send message to:', phoneValidation.formatted)
       const message = await twilioClient.messages.create({
         body: "Welcome to Daily Wellness Messages! Reply YES to confirm your subscription and start receiving daily health tips. Reply STOP at any time to unsubscribe.",
-        from: process.env.TWILIO_PHONE_NUMBER!,
+        from: process.env.TWILIO_PHONE_NUMBER,
         to: phoneValidation.formatted
       })
       console.log('Twilio message sent successfully:', message.sid)
     } catch (error: any) {
-      console.error('SMS error:', error)
       console.error('SMS error details:', {
         name: error?.name,
         message: error?.message,
         code: error?.code,
-        stack: error?.stack
+        fullError: JSON.stringify(error, null, 2)
       })
+      // Continue with the success response since the database insert worked
     }
 
     return NextResponse.json({
