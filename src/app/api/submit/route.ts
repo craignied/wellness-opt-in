@@ -61,12 +61,15 @@ const validateFullName = (name: string): { valid: boolean; error?: string } => {
 
 export async function POST(request: Request) {
   try {
+    console.log('Submit endpoint called')
     const data = await request.json()
+    console.log('Received data:', data)
     const { fullName, phoneNumber } = data
 
     // Validate full name
     const nameValidation = validateFullName(fullName)
     if (!nameValidation.valid) {
+      console.log('Name validation failed:', nameValidation.error)
       return NextResponse.json(
         { success: false, message: nameValidation.error || 'Invalid name format' },
         { status: 400 }
@@ -76,13 +79,16 @@ export async function POST(request: Request) {
     // Validate phone number
     const phoneValidation = validatePhoneNumber(phoneNumber)
     if (!phoneValidation.valid) {
+      console.log('Phone validation failed for:', phoneNumber)
       return NextResponse.json(
         { success: false, message: 'Please enter a valid phone number' },
         { status: 400 }
       )
     }
+    console.log('Validated phone number:', phoneValidation.formatted)
 
     // Check for existing subscription
+    console.log('Checking for existing subscription')
     const { data: existingUser } = await supabase
       .from('subscribers')
       .select('id')
@@ -90,6 +96,7 @@ export async function POST(request: Request) {
       .single()
 
     if (existingUser) {
+      console.log('Found existing subscription for:', phoneValidation.formatted)
       return NextResponse.json(
         { success: false, message: 'This phone number is already registered' },
         { status: 400 }
@@ -97,6 +104,7 @@ export async function POST(request: Request) {
     }
 
     // Store in database
+    console.log('Attempting database insert')
     const { error: dbError } = await supabase
       .from('subscribers')
       .insert([
@@ -114,19 +122,32 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+    console.log('Database insert successful')
 
     // Send initial opt-in message
     try {
+      console.log('Initializing Twilio client')
       const twilioClient = getClient()
-      await twilioClient.messages.create({
+      console.log('Twilio environment variables:')
+      console.log('Account SID length:', process.env.TWILIO_ACCOUNT_SID?.length || 'undefined')
+      console.log('Auth Token length:', process.env.TWILIO_AUTH_TOKEN?.length || 'undefined')
+      console.log('Phone Number:', process.env.TWILIO_PHONE_NUMBER || 'undefined')
+      
+      console.log('Attempting to send message to:', phoneValidation.formatted)
+      const message = await twilioClient.messages.create({
         body: "Welcome to Daily Wellness Messages! Reply YES to confirm your subscription and start receiving daily health tips. Reply STOP at any time to unsubscribe.",
         from: process.env.TWILIO_PHONE_NUMBER!,
         to: phoneValidation.formatted
       })
-    } catch (smsError) {
-      console.error('SMS error:', smsError)
-      // Don't return error to user as we've saved their info
-      // They can still opt in when they receive the first automated message
+      console.log('Twilio message sent successfully:', message.sid)
+    } catch (error: any) {
+      console.error('SMS error:', error)
+      console.error('SMS error details:', {
+        name: error?.name,
+        message: error?.message,
+        code: error?.code,
+        stack: error?.stack
+      })
     }
 
     return NextResponse.json({
@@ -134,8 +155,13 @@ export async function POST(request: Request) {
       message: 'Successfully registered! Please check your phone for a confirmation message.'
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Form submission error:', error)
+    console.error('Error details:', {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack
+    })
     return NextResponse.json(
       { success: false, message: 'Failed to process registration' },
       { status: 500 }
