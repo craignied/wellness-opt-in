@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
-import twilio from 'twilio'
 
-// Initialize Twilio client
+// Change the twilio import and initialization
+const twilio = require('twilio')
 const accountSid = process.env.TWILIO_ACCOUNT_SID
 const authToken = process.env.TWILIO_AUTH_TOKEN
 const twilioNumber = process.env.TWILIO_PHONE_NUMBER
 
 const client = twilio(accountSid, authToken)
 
-// Ensure phone number is properly formatted
+// The rest stays exactly the same
 const formatPhoneNumber = (phone: string): string => {
   const cleaned = phone.replace(/[^\d+]/g, '')
   return cleaned.startsWith('+') ? cleaned : `+1${cleaned}`
