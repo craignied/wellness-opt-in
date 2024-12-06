@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+// src/app/api/submit/route.ts
+import { NextResponse } from 'next/server';
+import { adminDb } from '@/lib/firebase/admin';
 
 // Initialize client only when needed
 const getClient = () => {
@@ -80,41 +81,30 @@ export async function POST(request: Request) {
     }
     console.log('Validated phone number:', phoneValidation.formatted)
 
-    // Check for existing subscription
+    /*/ Check for existing subscription
     console.log('Checking for existing subscription')
-    const { data: existingUser } = await supabase
-      .from('subscribers')
-      .select('id')
-      .eq('phone_number', phoneValidation.formatted)
-      .single()
+    const snapshot = await adminDb
+      .collection('subscribers')
+      .where('phone_number', '==', phoneValidation.formatted)
+      .get();
 
-    if (existingUser) {
+    if (!snapshot.empty) {
       console.log('Found existing subscription for:', phoneValidation.formatted)
       return NextResponse.json(
         { success: false, message: 'This phone number is already registered' },
         { status: 400 }
       )
-    }
+    } */
 
-    // Store in database
+    // Store in Firestore
     console.log('Attempting database insert')
-    const { error: dbError } = await supabase
-      .from('subscribers')
-      .insert([
-        { 
-          full_name: fullName.trim(), 
-          phone_number: phoneValidation.formatted,
-          opt_in_completed: false
-        }
-      ])
-
-    if (dbError) {
-      console.error('Database error:', dbError)
-      return NextResponse.json(
-        { success: false, message: 'Error saving subscription' },
-        { status: 500 }
-      )
-    }
+    await adminDb.collection('subscribers').add({
+      full_name: fullName.trim(),
+      phone_number: phoneValidation.formatted,
+      opt_in_completed: false,
+      created_at: new Date(),
+      unsubscribed: false
+    });
     console.log('Database insert successful')
 
     // Send initial opt-in message

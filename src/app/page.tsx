@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { db } from '@/lib/firebase/client'
+import { collection, getDocs } from 'firebase/firestore'
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,12 +20,33 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
+  useEffect(() => {
+    async function testFirebase() {
+      try {
+        console.log('Testing simple Firebase query...');
+        const subscribersRef = collection(db, 'subscribers');
+        const snapshot = await getDocs(subscribersRef);
+        console.log('Number of subscribers:', snapshot.size);
+        snapshot.forEach(doc => console.log(doc.id, doc.data()));
+      } catch (error) {
+        console.error('Firebase error:', error);
+      }
+    }
+    testFirebase();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('1. Form submission started');
     setIsSubmitting(true)
     setError(null)
     
     try {
+      console.log('2. About to make fetch request', {
+        fullName: formData.fullName,
+        phoneNumber: formData.phone
+      });
+
       const response = await fetch('/api/submit', {
         method: 'POST',
         headers: {
@@ -35,17 +58,22 @@ export default function Home() {
         }),
       })
 
+      console.log('3. Received response:', response.status);
       const data = await response.json()
+      console.log('4. Parsed response data:', data);
 
       if (!response.ok) {
         throw new Error(data.message || 'Something went wrong')
       }
 
+      console.log('5. Setting success state');
       setSuccess(true)
       setFormData({ fullName: "", phone: "" })
     } catch (err) {
+      console.error('Submit error:', err);
       setError(err instanceof Error ? err.message : 'Failed to submit form')
     } finally {
+      console.log('6. Submit process complete');
       setIsSubmitting(false)
     }
   }
@@ -102,6 +130,7 @@ export default function Home() {
                       value={formData.fullName}
                       onChange={handleChange}
                       required
+                      autoComplete="name"
                     />
                   </div>
 
@@ -113,6 +142,8 @@ export default function Home() {
                       value={formData.phone}
                       onChange={handleChange}
                       required
+                      autoComplete="tel"
+                      type="tel"
                     />
                   </div>
 
