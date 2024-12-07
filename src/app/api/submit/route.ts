@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     }
     console.log('Validated phone number:', phoneValidation.formatted)
 
-    /*/ Check for existing subscription
+    // Check for existing subscription
     console.log('Checking for existing subscription')
     const snapshot = await adminDb
       .collection('subscribers')
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
         { success: false, message: 'This phone number is already registered' },
         { status: 400 }
       )
-    } */
+    }
 
     // Store in Firestore
     console.log('Attempting database insert')
