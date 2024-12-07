@@ -1,6 +1,24 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 
+// Initialize client only when needed
+const getClient = () => {
+  // Check if credentials are available
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+    throw new Error('Twilio credentials not configured')
+  }
+
+  const twilioClient = require('twilio')(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN,
+    {
+      lazyLoading: true,
+      accountSid: process.env.TWILIO_ACCOUNT_SID  // Explicitly set accountSid
+    }
+  )
+  return twilioClient
+}
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -27,8 +45,15 @@ export async function POST(request: Request) {
             opt_in_completed: true,
             unsubscribed: false
           });
+          // Create a Twilio message response
+          const twilioClient = getClient();
+          await twilioClient.messages.create({
+            body: "Thank you for confirming! You are now subscribed to daily wellness messages. Reply STOP at any time to unsubscribe.",
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: from
+          });
           return NextResponse.json({
-            message: 'Thank you for confirming! You are now subscribed to daily wellness messages. Reply STOP at any time to unsubscribe.'
+            message: 'Subscription confirmed'
           });
 
         case 'STOP':
